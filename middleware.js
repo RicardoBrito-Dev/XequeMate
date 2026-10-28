@@ -27,9 +27,14 @@ export async function middleware(request) {
       },
     });
 
-    // Renova a sessão e confere quem está logado
-    const { data } = await supabase.auth.getUser();
-    user = data?.user || null;
+    // Renova a sessão e confere quem está logado (checagem local quando possível)
+    if (typeof supabase.auth.getClaims === 'function') {
+      const { data } = await supabase.auth.getClaims();
+      user = data?.claims?.sub ? { id: data.claims.sub } : null;
+    } else {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user || null;
+    }
   } catch (e) {
     console.error('[middleware] falha ao falar com o Supabase:', e?.message || e);
     return setupPage([

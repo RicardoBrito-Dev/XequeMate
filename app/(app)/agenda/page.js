@@ -25,24 +25,30 @@ export default async function AgendaPage({ searchParams }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const base = `/agenda?semana=${week}`;
 
-  const { data: cfg } = await supabase.from('settings').select('open_hour, close_hour').single();
-  const H0 = cfg?.open_hour ?? 9;
-  const H1 = cfg?.close_hour ?? 23;
-  const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
-
-  // Sessões da semana
+  // Configurações e sessões da semana, tudo de uma vez
+  const cfgQuery = supabase.from('settings').select('open_hour, close_hour').single();
   let blocks = [];
+  let cfg = null;
   if (team) {
-    const { data } = await supabase.from('bookings').select(BOOKING_SELECT).gte('date', ws).lte('date', we).neq('status', 'cancelado');
+    const [{ data: c }, { data }] = await Promise.all([
+      cfgQuery,
+      supabase.from('bookings').select(BOOKING_SELECT).gte('date', ws).lte('date', we).neq('status', 'cancelado'),
+    ]);
+    cfg = c;
     blocks = (data || []).map((b) => ({ ...b, own: true }));
   } else {
-    const [{ data: mine }, { data: busy }] = await Promise.all([
+    const [{ data: c }, { data: mine }, { data: busy }] = await Promise.all([
+      cfgQuery,
       supabase.from('bookings').select(BOOKING_SELECT).eq('artist_id', profile.id).gte('date', ws).lte('date', we).neq('status', 'cancelado'),
       supabase.rpc('studio_busy', { d_from: ws, d_to: we }),
     ]);
+    cfg = c;
     const mineIds = new Set((mine || []).map((b) => b.id));
     blocks = [...(mine || []).map((b) => ({ ...b, own: true })), ...(busy || []).filter((b) => !mineIds.has(b.id)).map((b) => ({ ...b, own: false }))];
   }
+  const H0 = cfg?.open_hour ?? 9;
+  const H1 = cfg?.close_hour ?? 23;
+  const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
 
   // Janela de nova sessão
   let newModal = null;
