@@ -14,7 +14,7 @@ const publicEnv = {
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Voltar para uma aba aberta há pouco mostra a página na hora (salvar qualquer coisa atualiza)
-  experimental: { staleTimes: { dynamic: 30, static: 180 } },
+  experimental: { staleTimes: { dynamic: 30, static: 60 } },
   env: Object.fromEntries(Object.entries(publicEnv).filter(([, v]) => typeof v === 'string' && v.length > 0)),
 };
 

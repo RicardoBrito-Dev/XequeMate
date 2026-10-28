@@ -47,7 +47,7 @@ export default function Shell({ profile, children }) {
         </Link>
         <nav className="menu" aria-label="Seções">
           {items.map(([href, label, icon]) => (
-            <Link key={href} href={href} className={`nav-a ${isOn(href) ? 'on' : ''}`} aria-current={isOn(href) ? 'page' : undefined}>
+            <Link key={href} href={href} prefetch className={`nav-a ${isOn(href) ? 'on' : ''}`} aria-current={isOn(href) ? 'page' : undefined}>
               <Icon name={icon} />
               <span>{label}</span>
             </Link>

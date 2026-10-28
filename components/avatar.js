@@ -7,7 +7,7 @@ export function initials(p) {
 export default function Avatar({ p, size = '' }) {
   const color = p?.color || '#6fcf9f';
   if (p?.avatar_url) {
-    return <img className={`av ${size}`} src={p.avatar_url} alt="" style={{ '--c': color }} />;
+    return <img loading="lazy" decoding="async" className={`av ${size}`} src={p.avatar_url} alt="" style={{ '--c': color }} />;
   }
   return (
     <span className={`av ${size}`} style={{ '--c': color }} aria-hidden="true">

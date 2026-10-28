@@ -5,13 +5,17 @@ import { envProblems, supabaseAnonKey, supabaseUrl } from '@/lib/env';
 // Páginas que abrem sem login
 const PUBLIC_PATHS = ['/login', '/esqueci-senha', '/auth/'];
 
+// Cabeçalhos internos: só o middleware escreve neles (os que vierem de fora são apagados)
+const UID_HEADER = 'x-xm-uid';
+const EMAIL_HEADER = 'x-xm-email';
+
 export async function middleware(request) {
   // Chaves do Supabase faltando ou erradas: mostra o que corrigir em vez de quebrar
   const problems = envProblems();
   if (problems.length) return setupPage(problems);
 
-  let response = NextResponse.next({ request });
   let user = null;
+  const newCookies = [];
 
   try {
     const supabase = createServerClient(supabaseUrl(), supabaseAnonKey(), {
@@ -20,20 +24,22 @@ export async function middleware(request) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            newCookies.push({ name, value, options });
+          });
         },
       },
     });
 
-    // Renova a sessão e confere quem está logado (checagem local quando possível)
+    // Confere quem está logado uma única vez (checagem local quando possível).
+    // As páginas reaproveitam este resultado em vez de conferir de novo.
     if (typeof supabase.auth.getClaims === 'function') {
       const { data } = await supabase.auth.getClaims();
-      user = data?.claims?.sub ? { id: data.claims.sub } : null;
+      user = data?.claims?.sub ? { id: data.claims.sub, email: data.claims.email || '' } : null;
     } else {
       const { data } = await supabase.auth.getUser();
-      user = data?.user || null;
+      user = data?.user ? { id: data.user.id, email: data.user.email || '' } : null;
     }
   } catch (e) {
     console.error('[middleware] falha ao falar com o Supabase:', e?.message || e);
@@ -41,6 +47,11 @@ export async function middleware(request) {
       'O site não conseguiu falar com o Supabase. Confira se a NEXT_PUBLIC_SUPABASE_URL é a Project URL certa e se o projeto não está pausado no painel do Supabase.',
     ]);
   }
+
+  const withCookies = (res) => {
+    newCookies.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
+    return res;
+  };
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p));
@@ -50,23 +61,24 @@ export async function middleware(request) {
     url.pathname = '/login';
     url.search = '';
     if (path !== '/' && path !== '/sair') url.searchParams.set('next', path);
-    return redirectWithCookies(url, response);
+    return withCookies(NextResponse.redirect(url));
   }
 
   if (user && (path === '/login' || path === '/esqueci-senha')) {
     const url = request.nextUrl.clone();
     url.pathname = '/painel';
     url.search = '';
-    return redirectWithCookies(url, response);
+    return withCookies(NextResponse.redirect(url));
   }
 
-  return response;
-}
-
-function redirectWithCookies(url, from) {
-  const res = NextResponse.redirect(url);
-  from.cookies.getAll().forEach((c) => res.cookies.set(c));
-  return res;
+  const headers = new Headers(request.headers);
+  headers.delete(UID_HEADER);
+  headers.delete(EMAIL_HEADER);
+  if (user) {
+    headers.set(UID_HEADER, user.id);
+    headers.set(EMAIL_HEADER, encodeURIComponent(user.email));
+  }
+  return withCookies(NextResponse.next({ request: { headers } }));
 }
 
 function setupPage(problems) {
