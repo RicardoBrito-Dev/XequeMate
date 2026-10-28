@@ -2,7 +2,7 @@
 
 App do Xeque Mate Studio feito em Next.js + Supabase, pronto para GitHub e Vercel.
 
-## O que já funciona (etapa 1)
+## O que já funciona (etapas 1 e 2)
 
 - **Login** com e-mail e senha, link de acesso por e-mail, "esqueci a senha" e troca de senha.
 - **Três tipos de acesso**:
@@ -17,12 +17,13 @@ App do Xeque Mate Studio feito em Next.js + Supabase, pronto para GitHub e Verce
   - técnico responsável em cada sessão;
   - preço calculado sozinho pelo serviço;
   - bloqueio de conflito de horário.
+- **Agenda dos artistas (etapa 2):** calendário mensal com shows, ensaios, entrevistas, lançamentos e viagens, com cachê e situação (confirmado ou a confirmar). As sessões no estúdio aparecem sozinhas. O artista vê e edita só a própria; admin e equipe veem todas e filtram por artista.
 - **Painel** de cada tipo de acesso.
 - **Perfil** com foto, bio, gêneros, redes e cor.
 - **Ajustes:** horário do estúdio e preço por hora de cada serviço.
 - **Instalação no celular:** o app pode ir para a tela inicial, como um aplicativo.
 
-As outras partes do protótipo (agenda dos artistas, EPs, arquivos, financeiro e Pix, pacotes, documentos e relatórios) entram nas próximas etapas, uma de cada vez, em cima deste mesmo projeto.
+As outras partes do protótipo (EPs, arquivos, financeiro e Pix, pacotes, documentos e relatórios) entram nas próximas etapas, uma de cada vez, em cima deste mesmo projeto.
 
 ---
 
@@ -39,6 +40,7 @@ Faça na ordem. Leva uns 30 minutos.
 3. Abra o arquivo `supabase/migrations/0001_login_perfis_agenda.sql` deste projeto, copie **tudo**, cole no editor e clique em **Run**.
    - Deve aparecer *Success. No rows returned*.
    - Rode **uma vez só**.
+   - Depois rode do mesmo jeito o arquivo `supabase/migrations/0002_agenda_artistas.sql` (agenda dos artistas). Sempre na ordem, cada um uma vez.
 4. Vá em **Authentication › Sign In / Providers** e **desligue** a opção **Allow new users to sign up**. Assim só entra quem você convidar. Deixe o provedor **Email** ligado.
 5. Vá em **Project Settings › API Keys** (em alguns projetos: **Settings › API**) e anote:
    - **Project URL** (fica em Settings › Data API ou no topo da página de API);

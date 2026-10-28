@@ -3,6 +3,7 @@ import PageTop from '@/components/page-top';
 import Modal from '@/components/modal';
 import Avatar from '@/components/avatar';
 import Icon from '@/components/icon';
+import AgendaTabs from '@/components/agenda-tabs';
 import NewSession, { NewLink } from './new-session';
 import { requireProfile, isTeam } from '@/lib/auth';
 import StatusPill from '@/components/status-pill';
@@ -209,7 +210,8 @@ export default async function AgendaPage({ searchParams }) {
       </PageTop>
 
       <div className="toolbar">
-        <div className="week-nav">
+        <AgendaTabs active="estudio" team={team} />
+        <div className="week-nav" style={{ marginLeft: 'auto' }}>
           <Link href={`/agenda?semana=${week - 1}`} className="btn sm ghost" aria-label="Semana anterior" scroll={false}>
             <Icon name="left" size={16} />
           </Link>

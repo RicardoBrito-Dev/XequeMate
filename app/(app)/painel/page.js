@@ -2,7 +2,7 @@ import Link from 'next/link';
 import PageTop from '@/components/page-top';
 import Icon from '@/components/icon';
 import { requireProfile } from '@/lib/auth';
-import { BOOKING_SELECT } from '@/lib/queries';
+import { BOOKING_SELECT, EVENT_SELECT } from '@/lib/queries';
 import { approveBooking, rejectBooking } from '@/lib/actions/agenda';
 import { DOW, MESF, addDays, brl, daysBetween, dowIndex, fmtDay, hrs, monthEnd, monthStart, parseDay, todaySP, weekOffset, weekStart } from '@/lib/dates';
 
@@ -38,6 +38,33 @@ function SessionRow({ b, showArtist }) {
   );
 }
 
+function EventRow({ e, showArtist, today }) {
+  return (
+    <Link href="/agenda/artistas" className="row link-row">
+      <span className="dot" style={{ '--c': e.artist?.color || '#6fcf9f' }} />
+      <div className="grow">
+        <b>{e.title}</b>
+        <span>
+          {showArtist ? `${e.artist?.stage_name || e.artist?.name} · ` : ''}
+          {e.kind}
+          {e.place ? ` · ${e.place}` : ''}
+          {e.status === 'a confirmar' ? ' · a confirmar' : ''}
+        </span>
+      </div>
+      <div className="when">
+        <b>{e.date === today ? 'Hoje' : fmtDay(e.date)}</b>
+        {e.time ? String(e.time).slice(0, 5) : ''}
+        {e.fee ? (
+          <>
+            <br />
+            <span className="fee">{brl(e.fee)}</span>
+          </>
+        ) : null}
+      </div>
+    </Link>
+  );
+}
+
 async function TeamPanel({ supabase, profile, today, dateLine }) {
   const admin = profile.role === 'admin';
   const ms = monthStart(today);
@@ -45,12 +72,13 @@ async function TeamPanel({ supabase, profile, today, dateLine }) {
   const ws = weekStart(today);
   const we = addDays(ws, 6);
 
-  const [{ data: cfg }, { data: month }, { data: pending }, { data: upcoming }, { count: artistCount }] = await Promise.all([
+  const [{ data: cfg }, { data: month }, { data: pending }, { data: upcoming }, { count: artistCount }, { data: shows }] = await Promise.all([
     supabase.from('settings').select('open_hour, close_hour').single(),
     supabase.from('bookings').select('date, duration, price, status, engineer_id').gte('date', ms).lte('date', me).eq('status', 'confirmado'),
     supabase.from('bookings').select(BOOKING_SELECT).eq('status', 'pendente').gte('date', today).order('date').order('start_hour').limit(8),
     supabase.from('bookings').select(BOOKING_SELECT).neq('status', 'cancelado').gte('date', today).order('date').order('start_hour').limit(8),
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'artist').eq('active', true),
+    supabase.from('events').select(EVENT_SELECT).eq('kind', 'Show').gte('date', today).order('date').order('time', { nullsFirst: true }).limit(6),
   ]);
 
   const rows = month || [];
@@ -157,15 +185,28 @@ async function TeamPanel({ supabase, profile, today, dateLine }) {
           </div>
         </div>
       </section>
+
+      <section className="card">
+        <div className="card-h">
+          <h2>Próximos shows dos artistas</h2>
+          <Link href="/agenda/artistas" className="linkbtn">
+            Ver agenda dos artistas
+          </Link>
+        </div>
+        <div className="list">
+          {(shows || []).length ? shows.map((e) => <EventRow key={e.id} e={e} showArtist today={today} />) : <p className="empty">Nenhum show marcado.</p>}
+        </div>
+      </section>
     </>
   );
 }
 
 async function ArtistPanel({ supabase, profile, today, dateLine }) {
   const ms = monthStart(today);
-  const [{ data: upcoming }, { data: month }] = await Promise.all([
+  const [{ data: upcoming }, { data: month }, { data: events }] = await Promise.all([
     supabase.from('bookings').select(BOOKING_SELECT).eq('artist_id', profile.id).neq('status', 'cancelado').gte('date', today).order('date').order('start_hour').limit(8),
     supabase.from('bookings').select('duration, price, date').eq('artist_id', profile.id).eq('status', 'confirmado').gte('date', ms).lte('date', monthEnd(today)),
+    supabase.from('events').select(EVENT_SELECT).eq('artist_id', profile.id).gte('date', today).order('date').order('time', { nullsFirst: true }).limit(5),
   ]);
   const list = upcoming || [];
   const next = list[0];
@@ -220,6 +261,18 @@ async function ArtistPanel({ supabase, profile, today, dateLine }) {
           </Link>
         </div>
         <div className="list">{list.length ? list.map((b) => <SessionRow key={b.id} b={b} />) : <p className="empty">Nenhuma sessão marcada.</p>}</div>
+      </section>
+
+      <section className="card">
+        <div className="card-h">
+          <h2>Minha agenda</h2>
+          <Link href="/agenda/artistas" className="linkbtn">
+            Abrir agenda
+          </Link>
+        </div>
+        <div className="list">
+          {(events || []).length ? events.map((e) => <EventRow key={e.id} e={e} today={today} />) : <p className="empty">Nada marcado. Adicione shows e compromissos na sua agenda.</p>}
+        </div>
       </section>
     </>
   );
