@@ -65,6 +65,8 @@ Faça na ordem. Leva uns 30 minutos.
    | `SUPABASE_SERVICE_ROLE_KEY` | a chave secreta (service_role ou secret) |
    | `NEXT_PUBLIC_SITE_URL` | deixe para o passo 4 |
 
+   Se você ligou a **integração do Supabase na Vercel**, ela já cria `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `SUPABASE_SECRET_KEY`. O app aceita esses nomes também, então não precisa criar as três primeiras.
+
 3. Clique em **Deploy**. No fim, a Vercel mostra o endereço do site, algo como `https://xeque-mate.vercel.app`.
 4. Volte em **Settings › Environment Variables**:
    - cadastre `NEXT_PUBLIC_SITE_URL` com esse endereço, sem barra no final;
