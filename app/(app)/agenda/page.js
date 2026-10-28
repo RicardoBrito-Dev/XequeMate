@@ -3,7 +3,7 @@ import PageTop from '@/components/page-top';
 import Modal from '@/components/modal';
 import Avatar from '@/components/avatar';
 import Icon from '@/components/icon';
-import BookingForm from './booking-form';
+import NewSession, { NewLink } from './new-session';
 import { requireProfile, isTeam } from '@/lib/auth';
 import StatusPill from '@/components/status-pill';
 import { BOOKING_SELECT } from '@/lib/queries';
@@ -25,24 +25,39 @@ export default async function AgendaPage({ searchParams }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const base = `/agenda?semana=${week}`;
 
-  // Configurações e sessões da semana, tudo de uma vez
+  // Tudo de uma vez: configurações, sessões da semana e os dados da janela "Nova sessão"
   const cfgQuery = supabase.from('settings').select('open_hour, close_hour').single();
+  const svcQuery = supabase.from('services').select('id, name, price_per_hour').eq('active', true).order('sort');
+  const none = Promise.resolve({ data: [] });
+  const artistsQuery = team ? supabase.from('profiles').select('id, name, stage_name').eq('role', 'artist').eq('active', true).order('stage_name') : none;
+  const staffQuery = team ? supabase.from('profiles').select('id, name').in('role', ['admin', 'staff']).eq('active', true).order('name') : none;
   let blocks = [];
   let cfg = null;
+  let services = [];
+  let artists = [];
+  let staff = [];
   if (team) {
-    const [{ data: c }, { data }] = await Promise.all([
+    const [{ data: c }, { data }, sv, ar, st] = await Promise.all([
       cfgQuery,
       supabase.from('bookings').select(BOOKING_SELECT).gte('date', ws).lte('date', we).neq('status', 'cancelado'),
+      svcQuery,
+      artistsQuery,
+      staffQuery,
     ]);
     cfg = c;
+    services = sv.data || [];
+    artists = ar.data || [];
+    staff = st.data || [];
     blocks = (data || []).map((b) => ({ ...b, own: true }));
   } else {
-    const [{ data: c }, { data: mine }, { data: busy }] = await Promise.all([
+    const [{ data: c }, { data: mine }, { data: busy }, sv] = await Promise.all([
       cfgQuery,
       supabase.from('bookings').select(BOOKING_SELECT).eq('artist_id', profile.id).gte('date', ws).lte('date', we).neq('status', 'cancelado'),
       supabase.rpc('studio_busy', { d_from: ws, d_to: we }),
+      svcQuery,
     ]);
     cfg = c;
+    services = sv.data || [];
     const mineIds = new Set((mine || []).map((b) => b.id));
     blocks = [...(mine || []).map((b) => ({ ...b, own: true })), ...(busy || []).filter((b) => !mineIds.has(b.id)).map((b) => ({ ...b, own: false }))];
   }
@@ -50,39 +65,17 @@ export default async function AgendaPage({ searchParams }) {
   const H1 = cfg?.close_hour ?? 23;
   const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
 
-  // Janela de nova sessão
-  let newModal = null;
+  // Janela de nova sessão: abre no navegador. Só se vier de um link com ?novo=... ela já abre pronta.
+  const defaultDate = ws < today ? today : ws;
+  const defaultStart = Math.min(Math.max(14, H0), H1 - 1);
+  let initial = null;
   if (sp.novo) {
     const [d, h] = String(sp.novo).split('T');
-    const date = isDay(d) ? d : ws < today ? today : ws;
     const startRaw = Number.parseInt(h, 10);
-    const start = Number.isInteger(startRaw) && startRaw >= H0 && startRaw < H1 ? startRaw : Math.min(Math.max(14, H0), H1 - 1);
-    const [{ data: services }, artistsRes, staffRes] = await Promise.all([
-      supabase.from('services').select('id, name, price_per_hour').eq('active', true).order('sort'),
-      team ? supabase.from('profiles').select('id, name, stage_name').eq('role', 'artist').eq('active', true).order('stage_name') : Promise.resolve({ data: [] }),
-      team ? supabase.from('profiles').select('id, name').in('role', ['admin', 'staff']).eq('active', true).order('name') : Promise.resolve({ data: [] }),
-    ]);
-    newModal = (
-      <Modal closeHref={base} label={team ? 'Nova sessão' : 'Pedir horário'}>
-        <h2>{team ? 'Nova sessão' : 'Pedir horário'}</h2>
-        {!team ? <p className="muted small">O pedido fica aguardando a confirmação do estúdio.</p> : null}
-        {team && !(artistsRes.data || []).length ? (
-          <p className="note warn">Nenhum artista cadastrado ainda. Convide em Pessoas.</p>
-        ) : null}
-        <BookingForm
-          team={team}
-          artists={artistsRes.data || []}
-          staff={staffRes.data || []}
-          services={services || []}
-          date={date}
-          start={start}
-          today={today}
-          openHour={H0}
-          closeHour={H1}
-          closeHref={base}
-        />
-      </Modal>
-    );
+    initial = {
+      date: isDay(d) ? d : defaultDate,
+      start: Number.isInteger(startRaw) && startRaw >= H0 && startRaw < H1 ? startRaw : defaultStart,
+    };
   }
 
   // Janela de detalhes
@@ -193,15 +186,26 @@ export default async function AgendaPage({ searchParams }) {
   const showNow = today >= ws && today <= we && nowH >= H0 && nowH < H1;
 
   return (
-    <>
+    <NewSession
+      team={team}
+      artists={artists}
+      staff={staff}
+      services={services}
+      today={today}
+      openHour={H0}
+      closeHour={H1}
+      defaultDate={defaultDate}
+      defaultStart={defaultStart}
+      initial={initial}
+    >
       <PageTop
         title="Agenda do estúdio"
         subtitle={team ? 'Clique num horário livre para marcar. Pedidos dos artistas aparecem tracejados.' : 'Clique num horário livre para pedir uma sessão. O estúdio confirma o pedido.'}
       >
-        <Link href={`${base}&novo=1`} className="btn pri" scroll={false}>
+        <NewLink href={`${base}&novo=1`} className="btn pri">
           <Icon name="plus" size={16} />
           {team ? 'Nova sessão' : 'Pedir horário'}
-        </Link>
+        </NewLink>
       </PageTop>
 
       <div className="toolbar">
@@ -246,11 +250,12 @@ export default async function AgendaPage({ searchParams }) {
                     const free = !past && !(d === today && h < Math.ceil(nowH));
                     if (!free) return null;
                     return (
-                      <Link
+                      <NewLink
                         key={h}
+                        date={d}
+                        hour={h}
                         href={`${base}&novo=${d}T${h}`}
                         className="slot"
-                        scroll={false}
                         style={{ top: `calc(${h - H0} * var(--rh))` }}
                         aria-label={`${team ? 'Marcar' : 'Pedir'} ${fmtDay(d)} às ${h}h`}
                       />
@@ -312,8 +317,7 @@ export default async function AgendaPage({ searchParams }) {
         </span>
       </div>
 
-      {newModal}
       {detailModal}
-    </>
+    </NewSession>
   );
 }

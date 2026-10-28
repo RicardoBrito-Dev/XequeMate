@@ -1,11 +1,10 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import Link from 'next/link';
 import { createBooking } from '@/lib/actions/agenda';
 import { brl, pad } from '@/lib/dates';
 
-export default function BookingForm({ team, artists, staff, services, date, start, today, openHour, closeHour, closeHref }) {
+export default function BookingForm({ team, artists, staff, services, date, start, today, openHour, closeHour, onClose }) {
   const [state, action, pending] = useActionState(createBooking, null);
   const [serviceId, setServiceId] = useState(services[0]?.id || '');
   const [duration, setDuration] = useState(2);
@@ -98,9 +97,9 @@ export default function BookingForm({ team, artists, staff, services, date, star
       {state?.error ? <p className="err full">{state.error}</p> : null}
 
       <div className="mact full">
-        <Link href={closeHref} className="btn ghost" scroll={false}>
+        <button type="button" className="btn ghost" onClick={onClose}>
           Cancelar
-        </Link>
+        </button>
         <button className="btn pri" disabled={pending}>
           {pending ? 'Salvando…' : team ? 'Marcar sessão' : 'Enviar pedido'}
         </button>
